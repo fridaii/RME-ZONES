@@ -96,6 +96,7 @@
 	<menu name="Search">
 		<item name="Find Item..." hotkey="Ctrl+F" action="FIND_ITEM" help="Find all instances of an item type the map."/>
 		<separator/>
+		<item name="Find Zones" action="SEARCH_ON_MAP_ZONES" help="Find all zones on map."/>
 		<item name="Find Unique" action="SEARCH_ON_MAP_UNIQUE" help="Find all items with an unique ID on map."/>
 		<item name="Find Action" action="SEARCH_ON_MAP_ACTION" help="Find all items with an action ID on map."/>
 		<item name="Find Container" action="SEARCH_ON_MAP_CONTAINER" help="Find all containers on map."/>
@@ -122,6 +123,7 @@
 		<menu name="Find on Selection">
 			<item name="Find Everything" action="SEARCH_ON_SELECTION_EVERYTHING" help="Find all unique/action/text/container items."/>
 			<separator/>
+			<item name="Find Zones" action="SEARCH_ON_SELECTION_ZONES" help="Find all zones on selected area."/>
 			<item name="Find Unique" action="SEARCH_ON_SELECTION_UNIQUE" help="Find all items with an unique ID on selected area."/>
 			<item name="Find Action" action="SEARCH_ON_SELECTION_ACTION" help="Find all items with an action ID on selected area."/>
 			<item name="Find Container" action="SEARCH_ON_SELECTION_CONTAINER" help="Find all containers on selected area."/>
@@ -163,6 +165,7 @@
 		<item name="Show Light Strength" hotkey="Shift+K" action="SHOW_LIGHT_STR" help="Show indicators of light strength."/>
 		<item name="Show Technical Items" hotkey="Shift+T" action="SHOW_TECHNICAL_ITEMS" help="Shows some of special items that are not visible in game."/>
 		<separator/>
+		<item name="Show zones" hotkey="Shift+N" action="SHOW_ZONES" help="Show zones on the map."/>
 		<item name="Show creatures" hotkey="F" action="SHOW_CREATURES" help="Show creatures on the map."/>
 		<item name="Show spawns" hotkey="S" action="SHOW_SPAWNS" help="Show spawns on the map."/>
 		<item name="Show special" hotkey="E" action="SHOW_SPECIAL" help="Show special tiles on the map, like PZ."/>

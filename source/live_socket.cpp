@@ -252,6 +252,12 @@ void LiveSocket::sendTile(MemoryNodeFileWriteHandle& writer, Tile* tile, const P
 	if (tile->getMapFlags()) {
 		writer.addByte(OTBM_ATTR_TILE_FLAGS);
 		writer.addU32(tile->getMapFlags());
+		if (tile->getMapFlags() & TILESTATE_ZONE_BRUSH) {
+			for (const auto& zoneId : tile->getZoneIds()) {
+				writer.addU16(zoneId);
+			}
+			writer.addU16(0);
+		}
 	}
 
 	Item* ground = tile->ground;
@@ -329,6 +335,18 @@ Tile* LiveSocket::readTile(BinaryNode* node, Editor& editor, const Position* pos
 					// warning("Invalid tile flags of tile on %d:%d:%d", pos.x, pos.y, pos.z);
 				}
 				tile->setMapFlags(flags);
+				if (flags & TILESTATE_ZONE_BRUSH) {
+					uint16_t zoneId = 0;
+					do {
+						if (!node->getU16(zoneId)) {
+							// warning("Invalid zone id of tile on %d:%d:%d", pos.x, pos.y, pos.z);
+						}
+
+						if (zoneId != 0) {
+							tile->addZoneId(zoneId);
+						}
+					} while (zoneId != 0);
+				}
 				break;
 			}
 			case OTBM_ATTR_ITEM: {

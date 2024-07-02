@@ -77,6 +77,12 @@ public: // Functions
 	// Map handling
 	void saveMap(FileName filename, bool showdialog); // "" means default filename
 
+	Map& getMap() noexcept {
+		return map;
+	}
+	const Map& getMap() const noexcept {
+		return map;
+	}
 	uint16_t getMapWidth() const {
 		return map.width;
 	}

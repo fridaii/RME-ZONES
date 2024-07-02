@@ -31,6 +31,7 @@ enum {
 	TILESTATE_NOLOGOUT = 0x0008,
 	TILESTATE_PVPZONE = 0x0010,
 	TILESTATE_REFRESH = 0x0020,
+	TILESTATE_ZONE_BRUSH = 0x0040,
 	// Internal
 	TILESTATE_SELECTED = 0x0001,
 	TILESTATE_UNIQUE = 0x0002,
@@ -236,6 +237,13 @@ public: // Functions
 	void setHouse(House* house);
 
 	// Mapflags (PZ, PVPZONE etc.)
+	void addZoneId(uint16_t _zoneId);
+	void removeZoneId(uint16_t _zoneId);
+	void clearZoneId();
+	void setZoneIds(Tile* tile);
+	const std::vector<uint16_t>& getZoneIds() const;
+	uint16_t getZoneId() const;
+
 	void setMapFlags(uint16_t _flags);
 	void unsetMapFlags(uint16_t _flags);
 	uint16_t getMapFlags() const;
@@ -253,6 +261,8 @@ protected:
 		};
 		uint32_t flags;
 	};
+
+	std::vector<uint16_t> zoneIds;
 
 private:
 	uint8_t minimapColor;
@@ -332,6 +342,40 @@ inline void Tile::unsetStatFlags(uint16_t _flags) {
 
 inline uint16_t Tile::getStatFlags() const {
 	return statflags;
+}
+
+inline void Tile::addZoneId(uint16_t _zoneId) {
+	if (std::find(zoneIds.begin(), zoneIds.end(), _zoneId) == zoneIds.end()) {
+		zoneIds.push_back(_zoneId);
+	}
+}
+
+inline void Tile::clearZoneId() {
+	zoneIds.clear();
+}
+
+inline void Tile::setZoneIds(Tile* tile) {
+	zoneIds.clear();
+	zoneIds.assign(tile->getZoneIds().begin(), tile->getZoneIds().end());
+}
+
+inline void Tile::removeZoneId(uint16_t _zoneId) {
+	const auto& itZone = std::find(zoneIds.begin(), zoneIds.end(), _zoneId);
+	if (itZone != zoneIds.end()) {
+		zoneIds.erase(itZone);
+	}
+}
+
+inline const std::vector<uint16_t>& Tile::getZoneIds() const {
+	return zoneIds;
+}
+
+inline uint16_t Tile::getZoneId() const {
+	if (zoneIds.empty()) {
+		return 0;
+	}
+
+	return zoneIds.front();
 }
 
 #endif

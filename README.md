@@ -4,3 +4,6 @@ It has zoneId system added, rme edit was made by Oskar (but on old RME, and with
 Tutorial for compiling is exactly the same as OTA rme.
 
 This rme is meant to be used with this commit for tfs: https://github.com/fridaii/TFS-ZONES
+
+
+Join Discord for more resources:  https://discord.gg/UuG4WuCZ9b

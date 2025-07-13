@@ -322,7 +322,7 @@ void Settings::IO(IOMode mode) {
 	String(PALETTE_TERRAIN_STYLE, "large icons");
 	String(PALETTE_COLLECTION_STYLE, "large icons");
 	String(PALETTE_DOODAD_STYLE, "large icons");
-	String(PALETTE_ITEM_STYLE, "extra large icons");
+	String(PALETTE_ITEM_STYLE, "listbox");
 	String(PALETTE_RAW_STYLE, "listbox");
 
 	section("Window");

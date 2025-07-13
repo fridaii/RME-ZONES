@@ -931,7 +931,6 @@ void GraphicManager::garbageCollection() {
 EditorSprite::EditorSprite(wxBitmap* b16x16, wxBitmap* b32x32) {
 	bm[SPRITE_SIZE_16x16] = b16x16;
 	bm[SPRITE_SIZE_32x32] = b32x32;
-	bm[SPRITE_SIZE_64x64] = nullptr; // Will be created on demand if needed
 }
 
 EditorSprite::~EditorSprite() {
@@ -942,22 +941,14 @@ void EditorSprite::DrawTo(wxDC* dc, SpriteSize sz, int start_x, int start_y, int
 	wxBitmap* sp = bm[sz];
 	if (sp) {
 		dc->DrawBitmap(*sp, start_x, start_y, true);
-	} else if (sz == SPRITE_SIZE_64x64 && bm[SPRITE_SIZE_32x32]) {
-		// Create 64x64 bitmap from 32x32 if needed
-		wxImage img32 = bm[SPRITE_SIZE_32x32]->ConvertToImage();
-		wxImage img64 = img32.Scale(64, 64, wxIMAGE_QUALITY_HIGH);
-		bm[SPRITE_SIZE_64x64] = new wxBitmap(img64);
-		dc->DrawBitmap(*bm[SPRITE_SIZE_64x64], start_x, start_y, true);
 	}
 }
 
 void EditorSprite::unloadDC() {
 	delete bm[SPRITE_SIZE_16x16];
 	delete bm[SPRITE_SIZE_32x32];
-	delete bm[SPRITE_SIZE_64x64];
 	bm[SPRITE_SIZE_16x16] = nullptr;
 	bm[SPRITE_SIZE_32x32] = nullptr;
-	bm[SPRITE_SIZE_64x64] = nullptr;
 }
 
 GameSprite::GameSprite() :
@@ -977,7 +968,6 @@ GameSprite::GameSprite() :
 	minimap_color(0) {
 	dc[SPRITE_SIZE_16x16] = nullptr;
 	dc[SPRITE_SIZE_32x32] = nullptr;
-	dc[SPRITE_SIZE_64x64] = nullptr;
 }
 
 GameSprite::~GameSprite() {
@@ -1000,10 +990,8 @@ void GameSprite::clean(int time) {
 void GameSprite::unloadDC() {
 	delete dc[SPRITE_SIZE_16x16];
 	delete dc[SPRITE_SIZE_32x32];
-	delete dc[SPRITE_SIZE_64x64];
 	dc[SPRITE_SIZE_16x16] = nullptr;
 	dc[SPRITE_SIZE_32x32] = nullptr;
-	dc[SPRITE_SIZE_64x64] = nullptr;
 }
 
 int GameSprite::getDrawHeight() const {
@@ -1077,7 +1065,7 @@ GLuint GameSprite::getHardwareID(int _x, int _y, int _dir, int _addon, int _patt
 }
 
 wxMemoryDC* GameSprite::getDC(SpriteSize size) {
-	ASSERT(size == SPRITE_SIZE_16x16 || size == SPRITE_SIZE_32x32 || size == SPRITE_SIZE_64x64);
+	ASSERT(size == SPRITE_SIZE_16x16 || size == SPRITE_SIZE_32x32);
 
 	if (!dc[size]) {
 		ASSERT(width >= 1 && height >= 1);
@@ -1104,17 +1092,8 @@ wxMemoryDC* GameSprite::getDC(SpriteSize size) {
 		}
 
 		// Now comes the resizing / antialiasing
-		if (size == SPRITE_SIZE_16x16 || size == SPRITE_SIZE_32x32 || size == SPRITE_SIZE_64x64 || image.GetWidth() > SPRITE_PIXELS || image.GetHeight() > SPRITE_PIXELS) {
-			int new_size;
-			if (size == SPRITE_SIZE_16x16) {
-				new_size = 16;
-			} else if (size == SPRITE_SIZE_32x32) {
-				new_size = 32;
-			} else if (size == SPRITE_SIZE_64x64) {
-				new_size = 64;
-			} else {
-				new_size = 32; // default
-			}
+		if (size == SPRITE_SIZE_16x16 || image.GetWidth() > SPRITE_PIXELS || image.GetHeight() > SPRITE_PIXELS) {
+			int new_size = SPRITE_SIZE_16x16 ? 16 : 32;
 			image.Rescale(new_size, new_size);
 		}
 
@@ -1128,10 +1107,10 @@ wxMemoryDC* GameSprite::getDC(SpriteSize size) {
 
 void GameSprite::DrawTo(wxDC* dc, SpriteSize sz, int start_x, int start_y, int width, int height) {
 	if (width == -1) {
-		width = sz == SPRITE_SIZE_64x64 ? 64 : sz == SPRITE_SIZE_32x32 ? 32 : 16;
+		width = sz == SPRITE_SIZE_32x32 ? 32 : 16;
 	}
 	if (height == -1) {
-		height = sz == SPRITE_SIZE_64x64 ? 64 : sz == SPRITE_SIZE_32x32 ? 32 : 16;
+		height = sz == SPRITE_SIZE_32x32 ? 32 : 16;
 	}
 	wxDC* sdc = getDC(sz);
 	if (sdc) {

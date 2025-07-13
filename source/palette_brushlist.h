@@ -24,6 +24,7 @@
 enum BrushListType {
 	BRUSHLIST_LARGE_ICONS,
 	BRUSHLIST_SMALL_ICONS,
+	BRUSHLIST_EXTRA_LARGE_ICONS,
 	BRUSHLIST_LISTBOX,
 	BRUSHLIST_TEXT_LISTBOX,
 };
@@ -107,6 +108,28 @@ protected:
 	RenderSize icon_size;
 
 	DECLARE_EVENT_TABLE();
+};
+
+class VirtualBrushListBox : public wxVListBox, public BrushBoxInterface {
+public:
+    VirtualBrushListBox(wxWindow* parent, const TilesetCategory* _tileset, RenderSize rsz);
+    ~VirtualBrushListBox();
+
+    wxWindow* GetSelfWindow() { return this; }
+
+    void SelectFirstBrush();
+    Brush* GetSelectedBrush() const;
+    bool SelectBrush(const Brush* brush);
+
+    void OnKey(wxKeyEvent& event);
+
+protected:
+    void OnDrawItem(wxDC& dc, const wxRect& rect, size_t n) const override;
+    wxCoord OnMeasureItem(size_t n) const override;
+
+    RenderSize icon_size;
+
+    DECLARE_EVENT_TABLE();
 };
 
 // A panel capapable of displaying a collection of brushes

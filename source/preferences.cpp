@@ -347,6 +347,7 @@ wxChoice* PreferencesWindow::AddPaletteStyleChoice(wxWindow* parent, wxSizer* si
 
 	choice->Append("Large Icons");
 	choice->Append("Small Icons");
+	choice->Append("Extra Large Icons");
 	choice->Append("Listbox with Icons");
 
 	text->SetToolTip(description);
@@ -356,8 +357,10 @@ wxChoice* PreferencesWindow::AddPaletteStyleChoice(wxWindow* parent, wxSizer* si
 		choice->SetSelection(0);
 	} else if (setting == "small icons") {
 		choice->SetSelection(1);
-	} else if (setting == "listbox") {
+	} else if (setting == "extra large icons") {
 		choice->SetSelection(2);
+	} else if (setting == "listbox") {
+		choice->SetSelection(3);
 	}
 
 	return choice;
@@ -369,6 +372,8 @@ void PreferencesWindow::SetPaletteStyleChoice(wxChoice* ctrl, int key) {
 	} else if (ctrl->GetSelection() == 1) {
 		g_settings.setString(key, "small icons");
 	} else if (ctrl->GetSelection() == 2) {
+		g_settings.setString(key, "extra large icons");
+	} else if (ctrl->GetSelection() == 3) {
 		g_settings.setString(key, "listbox");
 	}
 }

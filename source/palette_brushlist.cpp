@@ -315,6 +315,8 @@ void BrushPanel::SetListType(wxString ltype) {
 		SetListType(BRUSHLIST_SMALL_ICONS);
 	} else if (ltype == "large icons") {
 		SetListType(BRUSHLIST_LARGE_ICONS);
+	} else if (ltype == "extra large icons") {
+		SetListType(BRUSHLIST_EXTRA_LARGE_ICONS);
 	} else if (ltype == "listbox") {
 		SetListType(BRUSHLIST_LISTBOX);
 	} else if (ltype == "textlistbox") {
@@ -334,18 +336,29 @@ void BrushPanel::LoadContents() {
 	}
 	loaded = true;
 	ASSERT(tileset != nullptr);
-	switch (list_type) {
-		case BRUSHLIST_LARGE_ICONS:
-			brushbox = newd BrushIconBox(this, tileset, RENDER_SIZE_32x32);
-			break;
-		case BRUSHLIST_SMALL_ICONS:
-			brushbox = newd BrushIconBox(this, tileset, RENDER_SIZE_16x16);
-			break;
-		case BRUSHLIST_LISTBOX:
-			brushbox = newd BrushListBox(this, tileset);
-			break;
-		default:
-			break;
+	if (tileset->getType() == TILESET_RAW && tileset->size() > 100) {
+		// Wirtualizowana lista dla dużych RAW
+		RenderSize rsz = RENDER_SIZE_32x32;
+		if (list_type == BRUSHLIST_EXTRA_LARGE_ICONS) rsz = RENDER_SIZE_64x64;
+		else if (list_type == BRUSHLIST_SMALL_ICONS) rsz = RENDER_SIZE_16x16;
+		brushbox = newd VirtualBrushListBox(this, tileset, rsz);
+	} else {
+		switch (list_type) {
+			case BRUSHLIST_LARGE_ICONS:
+				brushbox = newd BrushIconBox(this, tileset, RENDER_SIZE_32x32);
+				break;
+			case BRUSHLIST_SMALL_ICONS:
+				brushbox = newd BrushIconBox(this, tileset, RENDER_SIZE_16x16);
+				break;
+			case BRUSHLIST_EXTRA_LARGE_ICONS:
+				brushbox = newd BrushIconBox(this, tileset, RENDER_SIZE_64x64);
+				break;
+			case BRUSHLIST_LISTBOX:
+				brushbox = newd BrushListBox(this, tileset);
+				break;
+			default:
+				break;
+		}
 	}
 	ASSERT(brushbox != nullptr);
 	sizer->Add(brushbox->GetSelfWindow(), 1, wxEXPAND);
@@ -430,6 +443,8 @@ BrushIconBox::BrushIconBox(wxWindow* parent, const TilesetCategory* _tileset, Re
 	int width;
 	if (icon_size == RENDER_SIZE_32x32) {
 		width = max(g_settings.getInteger(Config::PALETTE_COL_COUNT) / 2 + 1, 1);
+	} else if (icon_size == RENDER_SIZE_64x64) {
+		width = max(g_settings.getInteger(Config::PALETTE_COL_COUNT) / 4 + 1, 1);
 	} else {
 		width = max(g_settings.getInteger(Config::PALETTE_COL_COUNT) + 1, 1);
 	}
@@ -640,4 +655,70 @@ void BrushListBox::OnKey(wxKeyEvent& event) {
 					}
 			}
 	}
+}
+
+BEGIN_EVENT_TABLE(VirtualBrushListBox, wxVListBox)
+EVT_KEY_DOWN(VirtualBrushListBox::OnKey)
+END_EVENT_TABLE()
+
+VirtualBrushListBox::VirtualBrushListBox(wxWindow* parent, const TilesetCategory* _tileset, RenderSize rsz)
+    : wxVListBox(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLB_SINGLE),
+      BrushBoxInterface(_tileset),
+      icon_size(rsz)
+{
+    SetItemCount(tileset->size());
+}
+
+VirtualBrushListBox::~VirtualBrushListBox() {}
+
+void VirtualBrushListBox::SelectFirstBrush() {
+    SetSelection(0);
+    wxWindow::ScrollLines(-1);
+}
+
+Brush* VirtualBrushListBox::GetSelectedBrush() const {
+    if (!tileset) return nullptr;
+    int n = GetSelection();
+    if (n != wxNOT_FOUND) return tileset->brushlist[n];
+    else if (tileset->size() > 0) return tileset->brushlist[0];
+    return nullptr;
+}
+
+bool VirtualBrushListBox::SelectBrush(const Brush* whatbrush) {
+    for (size_t n = 0; n < tileset->size(); ++n) {
+        if (tileset->brushlist[n] == whatbrush) {
+            SetSelection(n);
+            return true;
+        }
+    }
+    return false;
+}
+
+void VirtualBrushListBox::OnKey(wxKeyEvent& event) {
+    event.Skip();
+}
+
+void VirtualBrushListBox::OnDrawItem(wxDC& dc, const wxRect& rect, size_t n) const {
+    ASSERT(n < tileset->size());
+    Sprite* spr = g_gui.gfx.getSprite(tileset->brushlist[n]->getLookID());
+    SpriteSize sz = SPRITE_SIZE_32x32;
+    int icon_px = 32;
+    if (icon_size == RENDER_SIZE_16x16) { sz = SPRITE_SIZE_16x16; icon_px = 16; }
+    else if (icon_size == RENDER_SIZE_64x64) { sz = SPRITE_SIZE_64x64; icon_px = 64; }
+    if (spr) {
+        spr->DrawTo(&dc, sz, rect.GetX() + 2, rect.GetY() + 2, icon_px, icon_px);
+    }
+    if (IsSelected(n)) {
+        dc.SetBrush(*wxTRANSPARENT_BRUSH);
+        dc.SetPen(wxPen(wxColor(0, 120, 215), 2));
+        dc.DrawRectangle(rect.GetX() + 1, rect.GetY() + 1, icon_px + 2, icon_px + 2);
+    }
+    dc.SetTextForeground(wxColor(0, 0, 0));
+    dc.DrawText(wxstr(tileset->brushlist[n]->getName()), rect.GetX() + icon_px + 8, rect.GetY() + (icon_px / 2) - 8);
+}
+
+wxCoord VirtualBrushListBox::OnMeasureItem(size_t n) const {
+    if (icon_size == RENDER_SIZE_64x64) return 68;
+    if (icon_size == RENDER_SIZE_32x32) return 36;
+    return 20;
 }

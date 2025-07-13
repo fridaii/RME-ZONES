@@ -57,3 +57,14 @@ cmake-build-debug/
 
 # Notepad++
 *.bak
+vcproj/.vs/Editor/ColorByRegexConfig.txt
+vcproj/.vs/Editor/FileContentIndex/2967255e-82da-4a36-925e-62aac2fb80de.vsidx
+vcproj/.vs/Editor/FileContentIndex/43b191a7-ab45-4f11-8855-0c310f6fa812.vsidx
+vcproj/.vs/Editor/FileContentIndex/461974c0-9b2a-40f9-b753-994c40a27bb5.vsidx
+vcproj/.vs/Editor/FileContentIndex/8a55ea0d-f3b6-4cd2-b389-b452bcb77725.vsidx
+vcproj/.vs/Editor/FileContentIndex/fd080a63-cd38-4b6b-bb47-f53eaf5ab1da.vsidx
+vcproj/.vs/Editor/v17/Browse.VC.db-shm
+vcproj/.vs/Editor/v17/Browse.VC.db-wal
+vcproj/.vs/Editor/v17/DocumentLayout.json
+vcproj/.vs/Editor/v17/ipch/93eafb149b695a89.ipch
+vcproj/.vs/Editor/v17/ipch/AutoPCH/83d7db9b903e5f9a/JSON_SPIRIT_READER.ipch

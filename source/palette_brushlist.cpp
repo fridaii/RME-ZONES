@@ -315,6 +315,8 @@ void BrushPanel::SetListType(wxString ltype) {
 		SetListType(BRUSHLIST_SMALL_ICONS);
 	} else if (ltype == "large icons") {
 		SetListType(BRUSHLIST_LARGE_ICONS);
+	} else if (ltype == "extra large icons") {
+		SetListType(BRUSHLIST_EXTRA_LARGE_ICONS);
 	} else if (ltype == "listbox") {
 		SetListType(BRUSHLIST_LISTBOX);
 	} else if (ltype == "textlistbox") {
@@ -340,6 +342,9 @@ void BrushPanel::LoadContents() {
 			break;
 		case BRUSHLIST_SMALL_ICONS:
 			brushbox = newd BrushIconBox(this, tileset, RENDER_SIZE_16x16);
+			break;
+		case BRUSHLIST_EXTRA_LARGE_ICONS:
+			brushbox = newd BrushIconBox(this, tileset, RENDER_SIZE_64x64);
 			break;
 		case BRUSHLIST_LISTBOX:
 			brushbox = newd BrushListBox(this, tileset);
@@ -418,39 +423,36 @@ void BrushPanel::OnClickListBoxRow(wxCommandEvent& event) {
 // BrushIconBox
 
 BEGIN_EVENT_TABLE(BrushIconBox, wxScrolledWindow)
-// Listbox style
 EVT_TOGGLEBUTTON(wxID_ANY, BrushIconBox::OnClickBrushButton)
+EVT_SIZE(BrushIconBox::OnResize)
 END_EVENT_TABLE()
 
-BrushIconBox::BrushIconBox(wxWindow* parent, const TilesetCategory* _tileset, RenderSize rsz) :
-	wxScrolledWindow(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxVSCROLL),
-	BrushBoxInterface(_tileset),
-	icon_size(rsz) {
-	ASSERT(tileset->getType() >= TILESET_UNKNOWN && tileset->getType() <= TILESET_HOUSE);
-	int width;
-	if (icon_size == RENDER_SIZE_32x32) {
-		width = max(g_settings.getInteger(Config::PALETTE_COL_COUNT) / 2 + 1, 1);
-	} else {
-		width = max(g_settings.getInteger(Config::PALETTE_COL_COUNT) + 1, 1);
-	}
+void BrushIconBox::OnResize(wxSizeEvent& event) {
+	this->ReloadLayout();
+	event.Skip();
+}
 
-	// Create buttons
+void BrushIconBox::ReloadLayout() {
+	if (this->GetSizer()) {
+		this->SetSizer(nullptr);
+	}
 	wxSizer* stacksizer = newd wxBoxSizer(wxVERTICAL);
 	wxSizer* rowsizer = nullptr;
 	int item_counter = 0;
-	for (BrushVector::const_iterator iter = tileset->brushlist.begin(); iter != tileset->brushlist.end(); ++iter) {
-		ASSERT(*iter);
-		++item_counter;
-
+	int client_width = this->GetClientSize().GetWidth();
+	int btn_size = 68; // domyślnie dla RENDER_SIZE_64x64
+	if (icon_size == RENDER_SIZE_32x32) btn_size = 36;
+	else if (icon_size == RENDER_SIZE_16x16) btn_size = 20;
+	int spacing = 2; // margines
+	int width = (client_width) / (btn_size + spacing);
+	width = std::max(width, 1); // zabezpieczenie przed 0
+	for (size_t i = 0; i < brush_buttons.size(); ++i) {
 		if (!rowsizer) {
 			rowsizer = newd wxBoxSizer(wxHORIZONTAL);
 		}
-
-		BrushButton* bb = newd BrushButton(this, *iter, rsz);
-		rowsizer->Add(bb);
-		brush_buttons.push_back(bb);
-
-		if (item_counter % width == 0) { // newd row
+		rowsizer->Add(brush_buttons[i], 0, wxALL, spacing);
+		++item_counter;
+		if (item_counter % width == 0) {
 			stacksizer->Add(rowsizer);
 			rowsizer = nullptr;
 		}
@@ -458,9 +460,25 @@ BrushIconBox::BrushIconBox(wxWindow* parent, const TilesetCategory* _tileset, Re
 	if (rowsizer) {
 		stacksizer->Add(rowsizer);
 	}
+	this->SetSizer(stacksizer);
+	this->Layout();
+	this->Refresh();
+	this->SetScrollRate(0, btn_size + spacing);
+	this->FitInside();
+}
 
-	SetScrollbars(20, 20, 8, item_counter / width, 0, 0);
-	SetSizer(stacksizer);
+BrushIconBox::BrushIconBox(wxWindow* parent, const TilesetCategory* _tileset, RenderSize rsz) :
+	wxScrolledWindow(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxVSCROLL),
+	BrushBoxInterface(_tileset),
+	icon_size(rsz) {
+	ASSERT(tileset->getType() >= TILESET_UNKNOWN && tileset->getType() <= TILESET_HOUSE);
+	// Tworzymy przyciski tylko raz
+	for (BrushVector::const_iterator iter = tileset->brushlist.begin(); iter != tileset->brushlist.end(); ++iter) {
+		ASSERT(*iter);
+		BrushButton* bb = newd BrushButton(this, *iter, rsz);
+		brush_buttons.push_back(bb);
+	}
+	ReloadLayout();
 }
 
 BrushIconBox::~BrushIconBox() {
@@ -508,29 +526,37 @@ void BrushIconBox::DeselectAll() {
 
 void BrushIconBox::EnsureVisible(BrushButton* btn) {
 	int windowSizeX, windowSizeY;
-	GetVirtualSize(&windowSizeX, &windowSizeY);
+	this->GetVirtualSize(&windowSizeX, &windowSizeY);
 
 	int scrollUnitX;
 	int scrollUnitY;
-	GetScrollPixelsPerUnit(&scrollUnitX, &scrollUnitY);
+	this->GetScrollPixelsPerUnit(&scrollUnitX, &scrollUnitY);
 
 	wxRect rect = btn->GetRect();
 	int y;
-	CalcUnscrolledPosition(0, rect.y, nullptr, &y);
+	this->CalcUnscrolledPosition(0, rect.y, nullptr, &y);
 
-	int maxScrollPos = windowSizeY / scrollUnitY;
-	int scrollPosY = std::min(maxScrollPos, (y / scrollUnitY));
+	int client_width = this->GetClientSize().GetWidth();
+	int btn_size = 68;
+	if (icon_size == RENDER_SIZE_32x32) btn_size = 36;
+	else if (icon_size == RENDER_SIZE_16x16) btn_size = 20;
+	int spacing = 2;
+	int width = (client_width) / (btn_size + spacing);
+	width = std::max(width, 1); // zabezpieczenie
+
+	int maxScrollPos = windowSizeY / std::max(scrollUnitY, 1);
+	int scrollPosY = std::min(maxScrollPos, (y / std::max(scrollUnitY, 1)));
 
 	int startScrollPosY;
-	GetViewStart(nullptr, &startScrollPosY);
+	this->GetViewStart(nullptr, &startScrollPosY);
 
 	int clientSizeX, clientSizeY;
-	GetClientSize(&clientSizeX, &clientSizeY);
-	int endScrollPosY = startScrollPosY + clientSizeY / scrollUnitY;
+	this->GetClientSize(&clientSizeX, &clientSizeY);
+	int endScrollPosY = startScrollPosY + clientSizeY / std::max(scrollUnitY, 1);
 
 	if (scrollPosY < startScrollPosY || scrollPosY > endScrollPosY) {
 		// only scroll if the button isnt visible
-		Scroll(-1, scrollPosY);
+		this->Scroll(-1, scrollPosY);
 	}
 }
 

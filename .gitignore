@@ -33,6 +33,8 @@ data/user
 *.db
 *.opendb
 
+vcpkg_installed/
+vcproj/.vs/
 vcproj/ipch/
 vcproj/Beta Release/
 vcproj/Debug/

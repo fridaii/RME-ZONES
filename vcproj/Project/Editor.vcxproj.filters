@@ -307,6 +307,9 @@
     <ClInclude Include="..\..\source\browse_tile_window.h">
       <Filter>gui\dialogs</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\source\border_workspace_window.h">
+      <Filter>gui\dialogs</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\source\positionctrl.h">
       <Filter>gui\controls</Filter>
     </ClInclude>
@@ -579,6 +582,9 @@
       <Filter>editor</Filter>
     </ClCompile>
     <ClCompile Include="..\..\source\browse_tile_window.cpp">
+      <Filter>gui\dialogs</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\source\border_workspace_window.cpp">
       <Filter>gui\dialogs</Filter>
     </ClCompile>
     <ClCompile Include="..\..\source\positionctrl.cpp">

@@ -25,6 +25,7 @@
 #include "result_window.h"
 #include "extension_window.h"
 #include "find_item_window.h"
+#include "border_workspace_window.h"
 #include "settings.h"
 
 #include "gui.h"
@@ -175,6 +176,7 @@ MainMenuBar::MainMenuBar(MainFrame* frame) :
 	MAKE_ACTION(WIN_MINIMAP, wxITEM_NORMAL, OnMinimapWindow);
 	MAKE_ACTION(NEW_PALETTE, wxITEM_NORMAL, OnNewPalette);
 	MAKE_ACTION(TAKE_SCREENSHOT, wxITEM_NORMAL, OnTakeScreenshot);
+	MAKE_ACTION(BORDER_WORKSPACE, wxITEM_NORMAL, OnBorderWorkspace);
 
 	MAKE_ACTION(SELECT_TERRAIN, wxITEM_NORMAL, OnSelectTerrainPalette);
 	MAKE_ACTION(SELECT_DOODAD, wxITEM_NORMAL, OnSelectDoodadPalette);
@@ -406,6 +408,7 @@ void MainMenuBar::Update() {
 
 	EnableItem(WIN_MINIMAP, loaded);
 	EnableItem(NEW_PALETTE, loaded);
+	EnableItem(BORDER_WORKSPACE, loaded);
 	EnableItem(SELECT_TERRAIN, loaded);
 	EnableItem(SELECT_DOODAD, loaded);
 	EnableItem(SELECT_ITEM, loaded);
@@ -2128,6 +2131,10 @@ void MainMenuBar::OnMinimapWindow(wxCommandEvent& event) {
 
 void MainMenuBar::OnNewPalette(wxCommandEvent& event) {
 	g_gui.NewPalette();
+}
+
+void MainMenuBar::OnBorderWorkspace(wxCommandEvent& WXUNUSED(event)) {
+	BorderWorkspaceWindow::Open(frame);
 }
 
 void MainMenuBar::OnSelectTerrainPalette(wxCommandEvent& WXUNUSED(event)) {

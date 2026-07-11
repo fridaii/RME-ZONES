@@ -132,6 +132,7 @@ namespace MenuBar {
 		WIN_MINIMAP,
 		NEW_PALETTE,
 		TAKE_SCREENSHOT,
+		BORDER_WORKSPACE,
 		SELECT_TERRAIN,
 		SELECT_DOODAD,
 		SELECT_ITEM,
@@ -288,6 +289,7 @@ public:
 	void OnMinimapWindow(wxCommandEvent& event);
 	void OnNewPalette(wxCommandEvent& event);
 	void OnTakeScreenshot(wxCommandEvent& event);
+	void OnBorderWorkspace(wxCommandEvent& event);
 	void OnSelectTerrainPalette(wxCommandEvent& event);
 	void OnSelectDoodadPalette(wxCommandEvent& event);
 	void OnSelectItemPalette(wxCommandEvent& event);

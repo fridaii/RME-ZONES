@@ -216,6 +216,7 @@
 	<menu name="Window">
 		<item name="Minimap" hotkey="M" action="WIN_MINIMAP" help="Displays the minimap window."/>
 		<item name="New Palette" action="NEW_PALETTE" help="Creates a new palette."/>
+		<item name="Border Workspace..." action="BORDER_WORKSPACE" help="Visually edit XML autoborder sets and item slots."/>
 		<menu name="Palette">
 			<item name="Terrain" hotkey="T" action="SELECT_TERRAIN" help="Select the Terrain palette."/>
 			<item name="Doodad" hotkey="D" action="SELECT_DOODAD" help="Select the Doodad palette."/>

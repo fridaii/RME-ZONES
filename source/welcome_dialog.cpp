@@ -33,7 +33,7 @@ WelcomeDialog::WelcomeDialog(const wxString& title_text, const wxString& version
 	dialog_sizer->Add(m_welcome_dialog_panel, 1, wxEXPAND);
 	SetSizer(dialog_sizer);
 
-	const wxSize minimum_client_size = FROM_DIP(this, wxSize(760, 440));
+	const wxSize minimum_client_size = FROM_DIP(this, wxSize(760, 500));
 	SetMinClientSize(minimum_client_size);
 	SetClientSize(wxSize(std::max(size.x, minimum_client_size.x), std::max(size.y, minimum_client_size.y)));
 	Layout();
@@ -116,6 +116,9 @@ WelcomeDialogPanel::WelcomeDialogPanel(WelcomeDialog* dialog, const wxString& ti
 	auto* open_map_button = newd WelcomeDialogButton(left_panel, wxDefaultPosition, button_size, button_base_colour, "Open");
 	open_map_button->SetAction(wxID_OPEN);
 	open_map_button->Bind(wxEVT_LEFT_UP, &WelcomeDialog::OnButtonClicked, dialog);
+	auto* map_converter_button = newd WelcomeDialogButton(left_panel, wxDefaultPosition, button_size, button_base_colour, "Map Converter");
+	map_converter_button->SetAction(WELCOME_DIALOG_MAP_CONVERTER);
+	map_converter_button->Bind(wxEVT_LEFT_UP, &WelcomeDialog::OnButtonClicked, dialog);
 	auto* preferences_button = newd WelcomeDialogButton(left_panel, wxDefaultPosition, button_size, button_base_colour, "Preferences");
 	preferences_button->SetAction(wxID_PREFERENCES);
 	preferences_button->Bind(wxEVT_LEFT_UP, &WelcomeDialog::OnButtonClicked, dialog);
@@ -123,6 +126,7 @@ WelcomeDialogPanel::WelcomeDialogPanel(WelcomeDialog* dialog, const wxString& ti
 	auto* buttons_sizer = newd wxBoxSizer(wxVERTICAL);
 	buttons_sizer->Add(new_map_button, 0, wxALIGN_CENTER | wxTOP, FROM_DIP(this, 10));
 	buttons_sizer->Add(open_map_button, 0, wxALIGN_CENTER | wxTOP, FROM_DIP(this, 10));
+	buttons_sizer->Add(map_converter_button, 0, wxALIGN_CENTER | wxTOP, FROM_DIP(this, 10));
 	buttons_sizer->Add(preferences_button, 0, wxALIGN_CENTER | wxTOP, FROM_DIP(this, 10));
 
 	auto* theme_sizer = newd wxBoxSizer(wxHORIZONTAL);

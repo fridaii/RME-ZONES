@@ -31,6 +31,7 @@
 #include "doodad_brush.h"
 #include "spawn_brush.h"
 #include "spawn_export_window.h"
+#include "map_item_id_converter_window.h"
 
 #include "common_windows.h"
 #include "result_window.h"
@@ -1064,17 +1065,16 @@ bool GUI::SetLoadDone(int32_t done, const wxString& newMessage) {
 	int32_t newProgress = progressFrom + static_cast<int32_t>((done / 100.f) * (progressTo - progressFrom));
 	newProgress = std::max<int32_t>(0, std::min<int32_t>(100, newProgress));
 
-	bool skip = false;
+	bool shouldContinue = true;
 	if (progressBar) {
-		progressBar->Update(
+		shouldContinue = progressBar->Update(
 			newProgress,
-			wxString::Format("%s (%d%%)", progressText, newProgress),
-			&skip
+			wxString::Format("%s (%d%%)", progressText, newProgress)
 		);
 		currentProgress = newProgress;
 	}
 
-	return skip;
+	return shouldContinue;
 }
 
 void GUI::DestroyLoadBar() {
@@ -1128,6 +1128,8 @@ void GUI::OnWelcomeDialogAction(wxCommandEvent& event) {
 		NewMap();
 	} else if (event.GetId() == wxID_OPEN) {
 		LoadMap(FileName(event.GetString()));
+	} else if (event.GetId() == WELCOME_DIALOG_MAP_CONVERTER) {
+		static_cast<void>(RunMapItemIdConverter(welcomeDialog));
 	}
 }
 

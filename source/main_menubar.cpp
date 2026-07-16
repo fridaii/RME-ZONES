@@ -27,6 +27,7 @@
 #include "find_item_window.h"
 #include "border_workspace_window.h"
 #include "materials_workbench_window.h"
+#include "map_item_id_converter_window.h"
 #include "settings.h"
 #include "spawn_export_window.h"
 
@@ -60,6 +61,7 @@ MainMenuBar::MainMenuBar(MainFrame* frame) :
 	MAKE_ACTION(CLOSE, wxITEM_NORMAL, OnClose);
 
 	MAKE_ACTION(IMPORT_MAP, wxITEM_NORMAL, OnImportMap);
+	MAKE_ACTION(MAP_ITEM_ID_CONVERTER, wxITEM_NORMAL, OnMapItemIdConverter);
 	MAKE_ACTION(IMPORT_MONSTERS, wxITEM_NORMAL, OnImportMonsterData);
 	MAKE_ACTION(IMPORT_MINIMAP, wxITEM_NORMAL, OnImportMinimap);
 	MAKE_ACTION(EXPORT_MINIMAP, wxITEM_NORMAL, OnExportMinimap);
@@ -343,6 +345,7 @@ void MainMenuBar::Update() {
 	EnableItem(GENERATE_MAP, false);
 
 	EnableItem(IMPORT_MAP, is_local);
+	EnableItem(MAP_ITEM_ID_CONVERTER, loaded);
 	EnableItem(IMPORT_MONSTERS, is_local);
 	EnableItem(IMPORT_MINIMAP, false);
 	EnableItem(EXPORT_MINIMAP, is_local);
@@ -791,6 +794,10 @@ void MainMenuBar::OnImportMap(wxCommandEvent& WXUNUSED(event)) {
 	ASSERT(g_gui.GetCurrentEditor());
 	wxDialog* importmap = newd ImportMapWindow(frame, *g_gui.GetCurrentEditor());
 	importmap->ShowModal();
+}
+
+void MainMenuBar::OnMapItemIdConverter(wxCommandEvent& WXUNUSED(event)) {
+	static_cast<void>(RunMapItemIdConverter(frame));
 }
 
 namespace {

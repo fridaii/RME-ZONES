@@ -136,10 +136,21 @@ public:
 
 	bool loadMap(Map& map, const FileName& identifier) override;
 	bool saveMap(Map& map, const FileName& identifier) override;
+	bool loadMapData(Map& map, const FileName& identifier);
+	bool saveMapData(Map& map, const FileName& identifier);
+	void useItemIdCodec(const ItemIdCodec* codec) {
+		setItemIdCodec(codec);
+	}
 
 	static bool saveZones(Map& map, pugi::xml_document& doc);
 
 protected:
+	enum class SpawnLoadStatus {
+		Loaded,
+		Unavailable,
+		Cancelled,
+	};
+
 	static bool getVersionInfo(NodeFileReadHandle* f, MapVersion& out_ver);
 
 	virtual bool loadMap(Map& map, NodeFileReadHandle& handle);
@@ -147,10 +158,10 @@ protected:
 	void readTileArea(BinaryNode* mapNode, Map& map);
 	void readTowns(BinaryNode* mapNode, Map& map);
 	void readWaypoints(BinaryNode* mapNode, Map& map);
-	void writeTiles(Map& map, NodeFileWriteHandle& f);
+	bool writeTiles(Map& map, NodeFileWriteHandle& f);
 	void writeTowns(Map& map, NodeFileWriteHandle& f);
 	void writeWaypoints(Map& map, NodeFileWriteHandle& f, bool& waypointsWarning);
-	bool loadSpawns(Map& map, const FileName& dir);
+	SpawnLoadStatus loadSpawns(Map& map, const FileName& dir);
 	bool loadHouses(Map& map, const FileName& dir);
 	bool loadHouses(Map& map, pugi::xml_document& doc);
 	bool loadWaypoints(Map& map, const FileName& dir);

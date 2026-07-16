@@ -31,6 +31,7 @@ namespace MenuBar {
 		GENERATE_MAP,
 		CLOSE,
 		IMPORT_MAP,
+		MAP_ITEM_ID_CONVERTER,
 		IMPORT_MONSTERS,
 		IMPORT_MINIMAP,
 		EXPORT_MINIMAP,
@@ -212,6 +213,7 @@ public:
 	// Import Menu
 	// Export Menu
 	void OnImportMap(wxCommandEvent& event);
+	void OnMapItemIdConverter(wxCommandEvent& event);
 	void OnImportMonsterData(wxCommandEvent& event);
 	void OnImportMinimap(wxCommandEvent& event);
 	void OnExportMinimap(wxCommandEvent& event);

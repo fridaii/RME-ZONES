@@ -22,6 +22,8 @@
 
 wxDECLARE_EVENT(WELCOME_DIALOG_ACTION, wxCommandEvent);
 
+constexpr wxWindowID WELCOME_DIALOG_MAP_CONVERTER = wxID_HIGHEST + 7000;
+
 class WelcomeDialogPanel;
 
 class WelcomeDialog : public wxDialog {
@@ -62,15 +64,15 @@ public:
 	void OnPaint(const wxPaintEvent& event);
 	void OnMouseEnter(const wxMouseEvent& event);
 	void OnMouseLeave(const wxMouseEvent& event);
-	wxStandardID GetAction() {
+	wxWindowID GetAction() {
 		return m_action;
 	};
-	void SetAction(wxStandardID action) {
+	void SetAction(wxWindowID action) {
 		m_action = action;
 	};
 
 private:
-	wxStandardID m_action;
+	wxWindowID m_action;
 	wxString m_text;
 	wxColour m_text_colour;
 	wxColour m_background;

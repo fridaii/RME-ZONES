@@ -122,7 +122,7 @@ public:
 	// Will return a node containing this item
 	virtual bool serializeItemNode_OTBM(const IOMap& maphandle, NodeFileWriteHandle& f) const;
 	// Will write this item to the stream supplied in the argument
-	virtual void serializeItemCompact_OTBM(const IOMap& maphandle, NodeFileWriteHandle& f) const;
+	virtual bool serializeItemCompact_OTBM(const IOMap& maphandle, NodeFileWriteHandle& f) const;
 	virtual void serializeItemAttributes_OTBM(const IOMap& maphandle, NodeFileWriteHandle& f) const;
 
 	// Static conversions

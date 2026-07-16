@@ -20,8 +20,14 @@
 
 #include <wx/file.h>
 
+#include <zlib.h>
+
+#include <limits>
+#include <optional>
 #include <set>
 #include <sstream>
+
+#include <wx/choicdlg.h>
 
 #include "settings.h"
 #include "gui.h" // Loadbar
@@ -72,8 +78,9 @@ Item* Item::Create_OTBM(const IOMap& maphandle, BinaryNode* stream, const ItemTy
 		*itemType = nullptr;
 	}
 
+	uint16_t storedId;
 	uint16_t _id;
-	if (!stream->getU16(_id)) {
+	if (!stream->getU16(storedId) || !maphandle.decodeStoredItemId(storedId, _id)) {
 		return nullptr;
 	}
 
@@ -246,8 +253,11 @@ void Item::serializeItemAttributes_OTBM(const IOMap& maphandle, NodeFileWriteHan
 	}
 }
 
-void Item::serializeItemCompact_OTBM(const IOMap& maphandle, NodeFileWriteHandle& stream) const {
-	stream.addU16(id);
+bool Item::serializeItemCompact_OTBM(const IOMap& maphandle, NodeFileWriteHandle& stream) const {
+	uint16_t storedId;
+	if (!maphandle.encodeStoredItemId(id, storedId) || !stream.addU16(storedId)) {
+		return false;
+	}
 
 	/* This is impossible
 	const ItemType& iType = g_items[id];
@@ -256,11 +266,16 @@ void Item::serializeItemCompact_OTBM(const IOMap& maphandle, NodeFileWriteHandle
 		stream.addU8(getSubtype());
 	}
 	*/
+	return true;
 }
 
 bool Item::serializeItemNode_OTBM(const IOMap& maphandle, NodeFileWriteHandle& file) const {
+	uint16_t storedId;
+	if (!maphandle.encodeStoredItemId(id, storedId)) {
+		return false;
+	}
 	file.addNode(OTBM_ITEM);
-	file.addU16(id);
+	file.addU16(storedId);
 	if (maphandle.version.otbm == MAP_OTBM_1) {
 		const ItemType& iType = g_items[id];
 		if (iType.stackable || iType.isSplash() || iType.isFluidContainer()) {
@@ -407,8 +422,12 @@ bool Container::unserializeItemNode_OTBM(const IOMap& maphandle, BinaryNode* nod
 }
 
 bool Container::serializeItemNode_OTBM(const IOMap& maphandle, NodeFileWriteHandle& file) const {
+	uint16_t storedId;
+	if (!maphandle.encodeStoredItemId(id, storedId)) {
+		return false;
+	}
 	file.addNode(OTBM_ITEM);
-	file.addU16(id);
+	file.addU16(storedId);
 	if (maphandle.version.otbm == MAP_OTBM_1) {
 		// In the ludicrous event that an item is a container AND stackable, we have to do this. :p
 		const ItemType& iType = g_items[id];
@@ -419,7 +438,9 @@ bool Container::serializeItemNode_OTBM(const IOMap& maphandle, NodeFileWriteHand
 
 	serializeItemAttributes_OTBM(maphandle, file);
 	for (Item* item : contents) {
-		item->serializeItemNode_OTBM(maphandle, file);
+		if (!item->serializeItemNode_OTBM(maphandle, file)) {
+			return false;
+		}
 	}
 
 	file.endNode();
@@ -543,30 +564,79 @@ static bool hasValidOtbmPrefix(const uint8_t* data, size_t size) {
 	return data[4] == NODE_START;
 }
 
+static bool readOtbmBytes(const FileName& filename, std::vector<uint8_t>& output, std::string& readError) {
+	FileReadHandle file(nstr(filename.GetFullPath()));
+	if (!file.isOk()) {
+		readError = "Couldn't open file for reading: " + file.getErrorMessage();
+		return false;
+	}
+
+	const size_t fileSize = file.size();
+	if (fileSize < 2) {
+		readError = "Could not read OTBM file header.";
+		return false;
+	}
+	std::vector<uint8_t> bytes(fileSize);
+	if (!file.getRAW(bytes.data(), bytes.size())) {
+		readError = "Couldn't read file: " + file.getErrorMessage();
+		return false;
+	}
+	if (bytes[0] != 0x1F || bytes[1] != 0x8B) {
+		output = std::move(bytes);
+		return true;
+	}
+	if (bytes.size() > std::numeric_limits<uInt>::max()) {
+		readError = "Compressed OTBM input is too large for the native gzip decoder.";
+		return false;
+	}
+
+	z_stream stream {};
+	stream.next_in = bytes.data();
+	stream.avail_in = static_cast<uInt>(bytes.size());
+	const int initResult = inflateInit2(&stream, MAX_WBITS + 16);
+	if (initResult != Z_OK) {
+		readError = "Could not initialize the native gzip decoder.";
+		return false;
+	}
+
+	constexpr size_t OUTPUT_CHUNK_SIZE = 1024 * 1024;
+	constexpr size_t MAX_DECOMPRESSED_OTBM_SIZE = 2ull * 1024 * 1024 * 1024;
+	std::vector<uint8_t> inflated;
+	int inflateResult = Z_OK;
+	do {
+		if (inflated.size() > MAX_DECOMPRESSED_OTBM_SIZE - OUTPUT_CHUNK_SIZE || inflated.size() > inflated.max_size() - OUTPUT_CHUNK_SIZE) {
+			inflateEnd(&stream);
+			readError = "Decompressed OTBM exceeds the 2 GiB safety limit.";
+			return false;
+		}
+		const size_t offset = inflated.size();
+		inflated.resize(offset + OUTPUT_CHUNK_SIZE);
+		stream.next_out = inflated.data() + offset;
+		stream.avail_out = static_cast<uInt>(OUTPUT_CHUNK_SIZE);
+		inflateResult = inflate(&stream, Z_NO_FLUSH);
+		const size_t produced = OUTPUT_CHUNK_SIZE - stream.avail_out;
+		inflated.resize(offset + produced);
+		if (inflateResult != Z_OK && inflateResult != Z_STREAM_END) {
+			const std::string decoderMessage = stream.msg ? stream.msg : "invalid or truncated gzip stream";
+			inflateEnd(&stream);
+			readError = "Could not decompress gzip OTBM: " + decoderMessage + ".";
+			return false;
+		}
+	} while (inflateResult != Z_STREAM_END);
+	inflateEnd(&stream);
+
+	output = std::move(inflated);
+	return true;
+}
+
 bool IOMapOTBM::getVersionInfo(const FileName& filename, MapVersion& out_ver) {
-
-	// Validate the OTBM prefix before parsing
-	FileReadHandle otbmProbe(nstr(filename.GetFullPath()));
-	if (!otbmProbe.isOk()) {
+	std::vector<uint8_t> otbmBuffer;
+	std::string readError;
+	if (!readOtbmBytes(filename, otbmBuffer, readError) || !hasValidOtbmPrefix(otbmBuffer.data(), otbmBuffer.size())) {
 		return false;
 	}
 
-	uint8_t otbmPrefix[5] = { 0 };
-	if (otbmProbe.size() < sizeof(otbmPrefix)) {
-		return false;
-	}
-	if (!otbmProbe.getRAW(otbmPrefix, sizeof(otbmPrefix))) {
-		return false;
-	}
-	if (!hasValidOtbmPrefix(otbmPrefix, sizeof(otbmPrefix))) {
-		return false;
-	}
-
-	// Just open a disk-based read handle
-	DiskNodeFileReadHandle f(nstr(filename.GetFullPath()), StringVector(1, "OTBM"));
-	if (!f.isOk()) {
-		return false;
-	}
+	MemoryNodeFileReadHandle f(otbmBuffer.data() + 4, otbmBuffer.size() - 4);
 	return getVersionInfo(&f, out_ver);
 }
 
@@ -598,43 +668,33 @@ bool IOMapOTBM::getVersionInfo(NodeFileReadHandle* f, MapVersion& out_ver) {
 	return true;
 }
 
-bool IOMapOTBM::loadMap(Map& map, const FileName& filename) {
+bool IOMapOTBM::loadMapData(Map& map, const FileName& filename) {
 
-	// Read the whole OTBM into memory and parse from there. Parsing directly off
-	// a disk handle (DiskNodeFileReadHandle) interleaves chunked disk reads with
-	// parsing, which can stall the load mid-way on large maps.
-	FileReadHandle otbmFile(nstr(filename.GetFullPath()));
-	if (!otbmFile.isOk()) {
-		error(("Couldn't open file for reading\nThe error reported was: " + wxstr(otbmFile.getErrorMessage())).wc_str());
+	// Parse from one in-memory buffer. Crystal may store gzip data under the
+	// regular .otbm extension; decompression is read-only and never changes save.
+	std::vector<uint8_t> otbmBuffer;
+	std::string readError;
+	if (!readOtbmBytes(filename, otbmBuffer, readError)) {
+		error(wxstr(readError).wc_str());
 		return false;
 	}
+	const size_t otbmSize = otbmBuffer.size();
 
-	const size_t otbmSize = otbmFile.size();
-	if (otbmSize < 5) {
-		error("Could not read OTBM file header.");
-		return false;
-	}
-
-	std::vector<uint8_t> otbmBuffer(otbmSize);
-	if (!otbmFile.getRAW(otbmBuffer.data(), otbmBuffer.size())) {
-		error(("Couldn't read file\nThe error reported was: " + wxstr(otbmFile.getErrorMessage())).wc_str());
-		return false;
-	}
-
-	const uint8_t* buf = otbmBuffer.data();
-	const bool isWildcard = buf[0] == 0 && buf[1] == 0 && buf[2] == 0 && buf[3] == 0;
-	const bool isOtbm = buf[0] == 'O' && buf[1] == 'T' && buf[2] == 'B' && buf[3] == 'M';
-	if (!isWildcard && !isOtbm) {
+	if (!hasValidOtbmPrefix(otbmBuffer.data(), otbmSize)) {
 		error("File magic number not recognized.");
-		return false;
-	}
-	if (buf[4] != NODE_START) {
-		error("Could not read root node.");
 		return false;
 	}
 
 	MemoryNodeFileReadHandle f(otbmBuffer.data() + 4, otbmSize - 4);
 	if (!loadMap(map, f)) {
+		return false;
+	}
+	map.mapVersion = version;
+	return true;
+}
+
+bool IOMapOTBM::loadMap(Map& map, const FileName& filename) {
+	if (!loadMapData(map, filename)) {
 		return false;
 	}
 
@@ -651,7 +711,12 @@ bool IOMapOTBM::loadMap(Map& map, const FileName& filename) {
 		warning("Failed to load zones.");
 	}
 
-	if (!loadSpawns(map, filename)) {
+	const SpawnLoadStatus spawnStatus = loadSpawns(map, filename);
+	if (spawnStatus == SpawnLoadStatus::Cancelled) {
+		error("Map loading was cancelled while choosing spawn files.");
+		return false;
+	}
+	if (spawnStatus == SpawnLoadStatus::Unavailable) {
 		warning("Failed to load spawns.");
 		map.spawnfile = nstr(filename.GetName()) + "-spawn.xml";
 		map.spawnNpcFile.clear();
@@ -1039,8 +1104,9 @@ bool IOMapOTBM::loadMap(Map& map, NodeFileReadHandle& f) {
 
 	for (BinaryNode* mapNode = mapHeaderNode->getChild(); mapNode != nullptr; mapNode = mapNode->advance()) {
 		++nodes_loaded;
-		if (nodes_loaded % 15 == 0) {
-			g_gui.SetLoadDone(static_cast<int32_t>(100.0 * f.tell() / f.size()));
+		if (nodes_loaded % 15 == 0 && !g_gui.SetLoadDone(std::min<int32_t>(99, static_cast<int32_t>(100.0 * f.tell() / f.size())))) {
+			error("Map loading was cancelled.");
+			return false;
 		}
 
 		uint8_t node_type;
@@ -1063,22 +1129,56 @@ bool IOMapOTBM::loadMap(Map& map, NodeFileReadHandle& f) {
 	return true;
 }
 
-bool IOMapOTBM::loadSpawns(Map& map, const FileName& dir) {
+IOMapOTBM::SpawnLoadStatus IOMapOTBM::loadSpawns(Map& map, const FileName& dir) {
 	const std::filesystem::path directory(nstr(dir.GetPath(wxPATH_GET_SEPARATOR | wxPATH_GET_VOLUME)));
-	const SpawnDetectionResult detection = SpawnFormatIO::Detect(directory, map.spawnfile, map.spawnNpcFile, nstr(dir.GetName()));
+	SpawnDetectionResult detection = SpawnFormatIO::Detect(directory, map.spawnfile, map.spawnNpcFile, nstr(dir.GetName()));
+	if (detection.conflict) {
+		static std::optional<SpawnFormat> sessionConflictChoice;
+		if (!sessionConflictChoice.has_value()) {
+			wxArrayString choices;
+			choices.Add("TFS combined: " + wxstr(detection.primaryFile.string()));
+			wxString canaryFiles = "Canary/Crystal split:";
+			if (!detection.alternatePrimaryFile.empty()) {
+				canaryFiles += "\n  monsters: " + wxstr(detection.alternatePrimaryFile.string());
+			}
+			if (!detection.alternateNpcFile.empty()) {
+				canaryFiles += "\n  NPCs: " + wxstr(detection.alternateNpcFile.string());
+			}
+			choices.Add(canaryFiles);
+			wxSingleChoiceDialog choiceDialog(
+				g_gui.root,
+				wxstr(detection.error) + "\n\nChoose the spawn set to load. This choice is remembered for this session.",
+				"Multiple spawn formats found",
+				choices
+			);
+			if (choiceDialog.ShowModal() != wxID_OK) {
+				warnings.push_back("IOMapOTBM::loadSpawns: Spawn loading was cancelled because multiple formats were found.");
+				return SpawnLoadStatus::Cancelled;
+			}
+			sessionConflictChoice = choiceDialog.GetSelection() == 0 ? detection.format : detection.alternateFormat;
+		}
+		if (*sessionConflictChoice == detection.alternateFormat) {
+			detection.format = detection.alternateFormat;
+			detection.primaryFile = detection.alternatePrimaryFile;
+			detection.npcFile = detection.alternateNpcFile;
+		}
+		detection.conflict = false;
+	}
 	if (detection.format == SpawnFormat::Unknown) {
 		warnings.push_back(wxstr("IOMapOTBM::loadSpawns: " + detection.error));
-		return false;
+		return SpawnLoadStatus::Unavailable;
 	}
 
 	SpawnDocument document;
 	std::string loadError;
-	const bool loaded = detection.format == SpawnFormat::CanaryCrystal
-		? SpawnFormatIO::LoadCanaryCrystal(detection.primaryFile, detection.npcFile, document, loadError)
-		: SpawnFormatIO::LoadTfs(detection.primaryFile, document, loadError);
+	const SpawnLoadDefaults defaults {
+		g_settings.getInteger(Config::DEFAULT_SPAWNTIME),
+		static_cast<uint32_t>(std::max(1, g_settings.getInteger(Config::MONSTER_DEFAULT_WEIGHT))),
+	};
+	const bool loaded = SpawnFormatIO::Load(detection, document, loadError, defaults);
 	if (!loaded) {
 		warnings.push_back(wxstr("IOMapOTBM::loadSpawns: " + loadError));
-		return false;
+		return SpawnLoadStatus::Unavailable;
 	}
 
 	map.spawnFormat = detection.format;
@@ -1093,12 +1193,12 @@ bool IOMapOTBM::loadSpawns(Map& map, const FileName& dir) {
 	std::vector<std::string> adapterWarnings;
 	if (!SpawnMapAdapter::Apply(map, document, adapterWarnings)) {
 		warnings.push_back("IOMapOTBM::loadSpawns: Failed to apply spawn data to the map.");
-		return false;
+		return SpawnLoadStatus::Unavailable;
 	}
 	for (const std::string& message : adapterWarnings) {
 		warnings.push_back(wxstr(message));
 	}
-	return true;
+	return SpawnLoadStatus::Loaded;
 }
 
 bool IOMapOTBM::loadHouses(Map& map, const FileName& dir) {
@@ -1252,6 +1352,32 @@ bool IOMapOTBM::loadZones(Map& map, pugi::xml_document& doc) {
 	return true;
 }
 
+bool IOMapOTBM::saveMapData(Map& map, const FileName& identifier) {
+	const std::filesystem::path mapFile(nstr(identifier.GetFullPath()));
+	DiskNodeFileWriteHandle file(
+		mapFile.string(),
+		(g_settings.getInteger(Config::SAVE_WITH_OTB_MAGIC_NUMBER) ? "OTBM" : std::string(4, '\0'))
+	);
+	if (!file.isOk()) {
+		error("Can not open file %s for writing", mapFile.string().c_str());
+		return false;
+	}
+	if (!saveMap(map, file) || !file.isOk()) {
+		if (errorstr.empty()) {
+			error("Could not write OTBM file %s", mapFile.string().c_str());
+		}
+		return false;
+	}
+	file.close();
+
+	MapVersion stagedVersion;
+	if (!getVersionInfo(identifier, stagedVersion)) {
+		error("Generated OTBM file failed validation: %s", mapFile.string().c_str());
+		return false;
+	}
+	return true;
+}
+
 bool IOMapOTBM::saveMap(Map& map, const FileName& identifier) {
 	const std::filesystem::path mapFile(nstr(identifier.GetFullPath()));
 	const std::filesystem::path directory(nstr(identifier.GetPath(wxPATH_GET_SEPARATOR | wxPATH_GET_VOLUME)));
@@ -1285,24 +1411,7 @@ bool IOMapOTBM::saveMap(Map& map, const FileName& identifier) {
 
 	FileSaveTransaction transaction;
 	const std::filesystem::path stagedMap = transaction.Stage(mapFile);
-	{
-		DiskNodeFileWriteHandle file(
-			stagedMap.string(),
-			(g_settings.getInteger(Config::SAVE_WITH_OTB_MAGIC_NUMBER) ? "OTBM" : std::string(4, '\0'))
-		);
-		if (!file.isOk()) {
-			error("Can not stage file %s for writing", stagedMap.string().c_str());
-			return false;
-		}
-		if (!saveMap(map, file) || !file.isOk()) {
-			error("Could not write staged OTBM file %s", stagedMap.string().c_str());
-			return false;
-		}
-		file.close();
-	}
-	MapVersion stagedVersion;
-	if (!getVersionInfo(FileName(wxstr(stagedMap.string())), stagedVersion)) {
-		error("Generated OTBM file failed validation: %s", stagedMap.string().c_str());
+	if (!saveMapData(map, FileName(wxstr(stagedMap.string())))) {
 		return false;
 	}
 
@@ -1377,7 +1486,7 @@ bool IOMapOTBM::saveMap(Map& map, const FileName& identifier) {
 	return true;
 }
 
-void IOMapOTBM::writeTiles(Map& map, NodeFileWriteHandle& f) {
+bool IOMapOTBM::writeTiles(Map& map, NodeFileWriteHandle& f) {
 	RME_PROFILE_SCOPE("IOMapOTBM::writeTiles");
 	const IOMapOTBM& self = *this;
 	uint32_t tiles_saved = 0;
@@ -1390,7 +1499,10 @@ void IOMapOTBM::writeTiles(Map& map, NodeFileWriteHandle& f) {
 		// Update progressbar
 		++tiles_saved;
 		if (tiles_saved % 8192 == 0) {
-			g_gui.SetLoadDone(int(tiles_saved / double(map.getTileCount()) * 100.0));
+			if (!g_gui.SetLoadDone(std::min<int32_t>(99, int(tiles_saved / double(map.getTileCount()) * 100.0)))) {
+				error("Map saving was cancelled.");
+				return false;
+			}
 		}
 
 		// Get tile
@@ -1448,19 +1560,27 @@ void IOMapOTBM::writeTiles(Map& map, NodeFileWriteHandle& f) {
 				}
 
 				if (!found) {
-					ground->serializeItemNode_OTBM(self, f);
+					if (!ground->serializeItemNode_OTBM(self, f)) {
+						return false;
+					}
 				}
 			} else if (ground->isComplex()) {
-				ground->serializeItemNode_OTBM(self, f);
+				if (!ground->serializeItemNode_OTBM(self, f)) {
+					return false;
+				}
 			} else {
 				f.addByte(OTBM_ATTR_ITEM);
-				ground->serializeItemCompact_OTBM(self, f);
+				if (!ground->serializeItemCompact_OTBM(self, f)) {
+					return false;
+				}
 			}
 		}
 
 		for (Item* item : save_tile->items) {
 			if (!item->isMetaItem()) {
-				item->serializeItemNode_OTBM(self, f);
+				if (!item->serializeItemNode_OTBM(self, f)) {
+					return false;
+				}
 			}
 		}
 
@@ -1481,6 +1601,7 @@ void IOMapOTBM::writeTiles(Map& map, NodeFileWriteHandle& f) {
 	if (!first) {
 		f.endNode();
 	}
+	return f.isOk();
 }
 
 void IOMapOTBM::writeTowns(Map& map, NodeFileWriteHandle& f) {
@@ -1571,7 +1692,9 @@ bool IOMapOTBM::saveMap(Map& map, NodeFileWriteHandle& f) {
 			f.addString(nstr(tmpName.GetFullName()));
 
 			// Start writing tiles
-			writeTiles(map, f);
+			if (!writeTiles(map, f)) {
+				return false;
+			}
 
 			writeTowns(map, f);
 

@@ -510,8 +510,8 @@ public:
 		g_gui.DestroyLoadBar();
 	}
 
-	static void SetLoadDone(int32_t done, const wxString& newmessage = wxEmptyString) {
-		g_gui.SetLoadDone(done, newmessage);
+	static bool SetLoadDone(int32_t done, const wxString& newmessage = wxEmptyString) {
+		return g_gui.SetLoadDone(done, newmessage);
 	}
 
 	static void SetLoadScale(int32_t from, int32_t to) {
